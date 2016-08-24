@@ -47,8 +47,8 @@ turtles-own[
   drawing-type-assigned;the type of drawing an agent will act for one action.
 
 ;  buttons-assigned; the order of buttons it owns, relating to the matrix buttons
-;  observation ; the agent's observation
-;  action-knowledge; knowledge about the actions. each action is a pair: (know-true, know-false).
+  observation ; the agent's observation
+  action-knowledge; knowledge about the actions. each action is a pair: (know-true, know-false).
   ; know-true consists of the propositions the agent is sure about.
   ; know false consists of the propositions the agent knows not going to be the case.
 ;  personal-plan;
@@ -225,21 +225,21 @@ to setup
 ;  setup-button
   setup-agents
 ;  assign-buttons
-;  show-vision;show the agents' vision by * mark.
+  show-vision;show the agents' vision by * mark.
 ;  setup-bidding
   setup-patches
-;  setup-drawings
+
   assign-drawings
+;  setup-drawings
 ;  set trying true
 ;  set time 0
   reset-timer
 end
 
 
+to perform-draw
 
-to setup-drawings
-
-  ask turtles[
+  ;ask turtles[
 
   ifelse(drawing-type-assigned = 0)
   [ask patch-here [set pcolor black]];eraser
@@ -264,7 +264,9 @@ to setup-drawings
     ]
   ]
 
-  ]
+
+
+  ;]
 end
 
 to assign-drawings; to assign different types of drawing to agents randomly.
@@ -273,13 +275,188 @@ to assign-drawings; to assign different types of drawing to agents randomly.
 end
 
 
-to perform-action
-  ask drawings[setup-drawings]
-  ask erasers[setup-drawings]
+;to perform-action
+;  ask drawings[perform-draw]
+;  ask erasers[perform-draw]
+;
+;end
+
+
+to go
+
+  observe
+  if(improve) [
+    ask drawings[perform-draw]
+    observe-and-learn
+  ]
+
+
+  move-drawing;movement of the drawings
+  show-vision
+  communicate;communicate betwwen drawings and erasers to ask the eraser to clean
+  if (should-clean)[
+    ask erasers[perform-draw]
+  ]
+  move-eraser;movement of the eraser
+  show-vision
+
+end
+
+to-report improve;whether the situation improves in the sense of more right drawings or more wrong drawings, in respect of the improvement-parameter.
+  let improved false;
+
+
+
+
+
+  report improved
+
+end
+
+to-report should-clean
+  let clean false;
+
+
+  report clean
+end
+
+to move-drawing
+
+
+end
+
+to move-eraser
+
+
+end
+
+to communicate
+
+
 
 end
 
 
+to observe
+   ask drawings [
+    let vision (patches in-cone-nowrap (vision-radius * width / 100) 360) ; the agent's vision
+    let vision-indexes []
+;    let vision-rel []
+    ask vision [
+      set vision-indexes fput (get-patch-index self)  vision-indexes
+;      set vision-rel fput ((get-patch-index patch-here) - (get-patch-index self) ) vision-rel
+      ]
+
+
+
+;   update-average-individual-knowledge
+   ]
+end
+
+
+to observe-and-learn
+  ask drawings[
+    let vision (patches in-cone-nowrap (vision-radius * width / 100) 360)
+    let vision-indexes []
+    ask vision [
+      set vision-indexes fput (get-patch-index self)  vision-indexes
+;      show self
+      ]
+    let know-false last action-knowledge
+    let know-true first action-knowledge
+
+; Step 1: obtain those not changed
+    let not-changed  []
+    if (not ((modes (sentence observation vision-indexes)) = (sentence observation vision-indexes))) and (not ((modes (sentence observation vision-indexes)) = vision-indexes))
+    [set not-changed (modes (sentence observation vision-indexes))]
+
+    let new-know-false []
+    foreach not-changed [
+
+
+      let relative-position (abs(?) - abs(get-patch-index patch-here))
+        set new-know-false fput (relative-position  * 3 + 2) new-know-false
+      ; compute the new knowledge obtained from vision and observation
+      ]
+    set know-false remove-duplicates (sentence know-false new-know-false) ; extract information and add to belief of this action remove-duplicates
+
+
+ ; Step 2: obtain those changed
+    let tmp (sentence (map [? * -1] observation) vision-indexes)
+    let changed []
+    if (not (modes tmp = tmp)) [set changed modes tmp] ; be careful about this line. if there is no repeated element then it would simply return the original list back!!!
+
+    let new-know-true []
+
+    foreach changed [
+      ;ifelse (? > 0)
+      ;[set new-know-true fput ((? - 1) * 3 + 1) new-know-true]
+      ;[set new-know-true fput (((? * -1) - 1) * 3 + 2) new-know-true]; compute the new knowledge obtained from vision and observation
+
+      let relative-position (abs(?) - abs(get-patch-index patch-here))
+      set new-know-false fput (relative-position  * 3 + 1) new-know-true
+
+
+
+    ]
+    set know-true (remove-duplicates (sentence know-true new-know-true))
+
+   ; Step 3:  if we know that the action does not have any effect in both cases when a certain patch is on or off. Then we have say it has no effect
+
+
+
+    let num-patch-in-vision length(vision) ;number of patches in vision
+    set num-patch-in-vision (num-patch-in-vision - 1) / 2
+    let index-patch-in-vision remove-duplicates (sentence (n-values num-patch-in-vision [?] ) (n-values num-patch-in-vision [ (- 1 )* ?] ))
+    ;the relative representation of patches in vision
+
+    foreach index-patch-in-vision[
+      ; if the other two are both members of know-false then we add itself to know true. That is, we know the effect of this action on this patch.
+
+      if((member? (? * 3 + 1) know-false) and (member? (? * 3 + 2) know-false) and not (member? (? * 3 + 3) know-true))[
+
+        set know-true (fput (? * 3 + 3) know-true)
+        set know-false (remove (? * 3 + 1) know-false)
+        set know-false (remove (? * 3 + 2) know-false)
+
+        ]
+      ]
+
+    set know-true remove-duplicates know-true
+    set know-false remove-duplicates know-false
+
+    ; replace the knowledge of the action
+    set action-knowledge (list know-true know-false)
+    ;set action-knowledge replace-item button-chosen action-knowledge (list know-true know-false)
+    ; and finally, set vision-indexes as the new observation
+    ;set observation vision-indexes; TODO: what if after walk, there is no information about new local pathes?
+   ;set observation vision-rel
+
+  ]
+end
+
+
+to show-vision
+  ask patches [set plabel ""]
+  ;visulize of the vision,setting plabels in the vision
+   ask turtles [
+    set own-color color
+    let oc own-color
+
+       ask patches in-cone-nowrap (vision-radius * width / 100) 360
+          [
+;            set pcolor pcolor + 1; this code trace the routes(and vision) the agents go, you can delete it if you don't like it.
+           set plabel-color oc
+           set plabel "*"    ]
+      ]
+end
+
+to update-desire
+
+  if(check-goal)
+;  [ask turtles [set desire "stop"]]
+    [ask turtles [set desire "stop"]]
+end
 
 ;=============================================================================================
 ; check if the goal is reached. If reached, the game will terminates.
@@ -451,10 +628,10 @@ HORIZONTAL
 BUTTON
 764
 97
-925
+970
 130
-NIL
-setup-drawings
+show drawing styles
+ask turtles[perform-draw]
 NIL
 1
 T
@@ -474,7 +651,7 @@ num-drawings
 num-drawings
 1
 4
-2
+1
 1
 1
 NIL
@@ -490,6 +667,55 @@ drawing-paramer
 1
 3
 1
+1
+1
+NIL
+HORIZONTAL
+
+BUTTON
+776
+146
+839
+179
+NIL
+go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+856
+149
+919
+182
+NIL
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+30
+499
+207
+532
+vision-radius
+vision-radius
+10
+50
+27
 1
 1
 NIL
