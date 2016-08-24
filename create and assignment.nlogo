@@ -212,7 +212,8 @@ to setup-ticks
 ;  set ticks-per-hour (ticks-per-hour + 4); 4 sticks corresponding to: bid, observe, execute, learn
 end
 to setup
-
+  clear-all
+  open-file
   ;set noise 12; the randomly set points in each button that belongs to solution.
   ; set noise-dis 8; the randomly set points in each button that not belongs to solution.
 
@@ -294,24 +295,18 @@ to go
   move-drawing;movement of the drawings
   show-vision
   communicate;communicate betwwen drawings and erasers to ask the eraser to clean
-  if (should-clean)[
+  if (improve)[
     ask erasers[perform-draw]
   ]
   move-eraser;movement of the eraser
   show-vision
+  if(check-goal)
+     [ask turtles [die]]
+
 
 end
 
-to-report improve;whether the situation improves in the sense of more right drawings or more wrong drawings, in respect of the improvement-parameter.
-  let improved false;
 
-
-
-
-
-  report improved
-
-end
 
 to-report should-clean
   let clean false;
@@ -339,7 +334,7 @@ end
 
 to observe
    ask drawings [
-    let vision (patches in-cone-nowrap (vision-radius * width / 100) 360) ; the agent's vision
+    let vision (patches in-cone-nowrap (vision-radius * width / 100) 360) ; the agent's vision. Notice: the vision should at least be wider than its drawing range.
     let vision-indexes []
 ;    let vision-rel []
     ask vision [
@@ -353,6 +348,48 @@ to observe
    ]
 end
 
+to-report improve;whether the situation improves in the sense of more right drawings or more wrong drawings, in respect of the improvement-parameter.
+  let improved false;
+ ask turtles[
+
+  ifelse(drawing-type-assigned = 0)
+  [let index ( get-patch-index patch-here )
+    if (member? index ( item 1 goal)) ;should be black, but green when the eraser is on this patch.
+    [set improved true]
+    ];eraser performs action
+  [
+    ifelse( drawing-type-assigned = 1);type 1
+;  ask drawings[
+;    ask patch-ahead 1 [set pcolor green]
+    [ask patches in-cone-nowrap 1 360[set pcolor green]; TODO...................
+
+
+
+    ]
+    [ifelse( drawing-type-assigned = 2); TODO...................
+      [ask patches in-cone-nowrap 1 360[set pcolor green];type 2; TODO...................
+        if(patch-right-and-ahead 135 1.5 != nobody); TODO...................
+        [ask patch-right-and-ahead 135 1.5 [ set pcolor green ]]; TODO...................
+        if(patch-right-and-ahead 135 2.8 != nobody)
+        [ask patch-right-and-ahead 135 2.8 [ set pcolor green ]]; TODO...................
+        if(patch-right-and-ahead 45 1.5 != nobody)
+        [ask patch-left-and-ahead 45 1.5 [ set pcolor green ]]; TODO...................
+      ]
+      [ask patches in-cone-nowrap 1.5 360[set pcolor green];type 3; TODO...................
+      ]
+
+    ]
+  ]
+
+
+
+  ]
+
+
+
+  report improved
+
+end
 
 to observe-and-learn
   ask drawings[
@@ -547,10 +584,10 @@ NIL
 1
 
 BUTTON
-6
-152
-167
-185
+-2
+173
+159
+206
 clear displace
 ask patches [set pcolor black]
 NIL
@@ -564,10 +601,10 @@ NIL
 1
 
 SLIDER
-1
-194
-251
-227
+2
+205
+252
+238
 improvement-parameter
 improvement-parameter
 0
@@ -626,12 +663,12 @@ NIL
 HORIZONTAL
 
 BUTTON
-764
-97
-970
-130
+0
+135
+206
+168
 show drawing styles
-ask turtles[perform-draw]
+setup\nask turtles[perform-draw]
 NIL
 1
 T
@@ -673,10 +710,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-776
-146
-839
-179
+777
+103
+840
+136
 NIL
 go
 NIL
@@ -690,10 +727,10 @@ NIL
 1
 
 BUTTON
-856
-149
-919
-182
+857
+106
+920
+139
 NIL
 go
 T
@@ -713,9 +750,9 @@ SLIDER
 532
 vision-radius
 vision-radius
-10
+int(300 / width)
 50
-27
+25
 1
 1
 NIL
